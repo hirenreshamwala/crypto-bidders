@@ -1,7 +1,9 @@
 import 'dotenv/config'
 
 import ws from "ws";
+import { performance } from "perf_hooks";
 global.WebSocket = ws;
+global.performance = performance;
 
 import { createExchange } from "safe-cex";
 import { EMA } from "technicalindicators";
@@ -71,31 +73,25 @@ const tokenLoop = async (token) => {
     // remove existing limit orders
     await app.cancelSymbolOrders(token.symbol);
 
-    const tradeRange = parseFloat(process.env.TRADE_RANGE_BETWEEN_PERCENTAGE) || 1;
+    const tradeRangeHigh = parseFloat(process.env.TRADE_RANGE_BETWEEN_PERCENTAGE_HIGH) || 1.01;
+    const tradeRangeLow = parseFloat(process.env.TRADE_RANGE_BETWEEN_PERCENTAGE_LOW) || 0.99;
 
     // generate 10 limit orders in range of +- 1% of EMA 200
-    const high = priceTarget * tradeRange;
-    const low = priceTarget * tradeRange;
+    const high = priceTarget * tradeRangeHigh;
+    const low = priceTarget * tradeRangeLow;
 
     const amount = TOTAL_USDT_AMOUNT / tokens.length / priceTarget / ORDERS_COUNT;
     const buyLimitOrders = [];
 
     for (let i = 0; i < ORDERS_COUNT; i++) {
         const price = low + ((high - low) * i) / ORDERS_COUNT;
-        console.log({
+        buyLimitOrders.push({
             symbol: token.symbol,
             side: OrderSide.Buy,
             price,
             amount,
             type: OrderType.Limit,
-        })
-        // buyLimitOrders.push({
-        //   symbol: token.symbol,
-        //   side: OrderSide.Buy,
-        //   price,
-        //   amount,
-        //   type: OrderType.Limit,
-        // });
+        });
     }
 
     await app.placeOrders(buyLimitOrders);
